@@ -44,8 +44,8 @@ static DdManager *startCudd ARGS ((NtrOptions * option, int nvars));
 static int ntrReadTree ARGS ((DdManager * dd, char *treefile, int nvars));
 static void DynamicReordering ARGS ((DdManager *dd));
 
-
-int main (int argc, char **argv)
+	int
+main (int argc, char **argv)
 {
 	NtrOptions *option;
 	BnetNetwork *net;

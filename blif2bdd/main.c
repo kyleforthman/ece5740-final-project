@@ -47,33 +47,32 @@ int getBddSize(DdManager *dd) {
 	return Cudd_ReadKeys(dd) - Cudd_ReadDead(dd);
 }
 
-void updateNetworkVarOrder(BnetNetwork *net, DdManager *manager) {
-    BnetNode *node;
-	int *newOrder;
-	int i;
+/* void updateNetworkVarOrder(BnetNetwork *net, DdManager *manager) { */
+/*     BnetNode *node; */
+/* 	int *newOrder; */
+/* 	int i; */
 
-	newOrder = ALLOC(int, net->ninputs);
-	if (newOrder == NULL) {
-		return;
-	}
+/* 	newOrder = ALLOC(int, net->ninputs); */
+/* 	if (newOrder == NULL) { */
+/* 		return; */
+/* 	} */
 
-    for (i = 0; i < net->ninputs; i++) {
-		st_lookup(net->hash, net->inputs[i], &node);
-		if (node != NULL && node->type == BNET_INPUT_NODE) {
-			int index = Cudd_NodeReadIndex(node->dd);
-			newOrder[index] = i;
-		}
-	}
+/*     for (i = 0; i < net->ninputs; i++) { */
+/* 		st_lookup(net->hash, net->inputs[i], &node); */
+/* 		if (node != NULL && node->type == BNET_INPUT_NODE) { */
+/* 			int index = Cudd_NodeReadIndex(node->dd); */
+/* 			newOrder[index] = i; */
+/* 		} */
+/* 	} */
 
-	char **updatedInputs = ALLOC(char *, net->ninputs);
-	for (i = 0; i < net->ninputs; i++) {
-		updatedInputs[i] = net->inputs[newOrder[i]];
-	}
+/* 	char **updatedInputs = ALLOC(char *, net->ninputs); */
+/* 	for (i = 0; i < net->ninputs; i++) { */
+/* 		updatedInputs[i] = net->inputs[newOrder[i]]; */
+/* 	} */
 
-    FREE(newOrder);
-	FREE(updatedInputs);
-}
-
+/*     FREE(newOrder); */
+/* 	FREE(updatedInputs); */
+/* } */
 
 int main (int argc, char **argv)
 {
@@ -116,7 +115,6 @@ int main (int argc, char **argv)
 	}
 
 	int input_counter = 0;
-	fprintf (stdout, "\nPI are: \n");
 	for (i = 0; i < net->ninputs; i++) {
 		input_counter++;
 	}
@@ -126,7 +124,7 @@ int main (int argc, char **argv)
 	for (i = 0; i < net->noutputs; i++) {
 		output_counter++;
 	}
-	fprintf (stdout, "\nOutputs: %8d\n", output_counter);
+	fprintf (stdout, "\nOutputs: %8d\n\n", output_counter);
 
 	/* Contruct the BDD structure */
 	manager = startCudd (option, net->ninputs);
@@ -140,29 +138,55 @@ int main (int argc, char **argv)
 		exit (-1);
 	}
 
-    int liveNodesBefore = Cudd_ReadKeys(manager);
-	int deadNodesBefore = Cudd_ReadDead(manager);
-	int bddSizeBefore = getBddSize(manager);
-	fprintf(stdout, "Before reordering:\n");
-	fprintf(stdout, "Live nodes: %d\n", liveNodesBefore);
-	fprintf(stdout, "Dead nodes: %d\n", deadNodesBefore);
-	fprintf(stdout, "BDD size: %d\n", bddSizeBefore);
+    /* int liveNodesBefore = Cudd_ReadKeys(manager); */
+	/* int deadNodesBefore = Cudd_ReadDead(manager); */
+	/* int bddSizeBefore = getBddSize(manager); */
+	/* fprintf(stdout, "Before reordering:\n"); */
+	/* fprintf(stdout, "Live nodes: %d\n", liveNodesBefore); */
+	/* fprintf(stdout, "Dead nodes: %d\n", deadNodesBefore); */
+	/* fprintf(stdout, "BDD size: %d\n", bddSizeBefore); */
+
+	DdNode *bdd;
+    int numNodes = Cudd_DagSize(bdd);
+	printf("Number of nodes: %d\n", numNodes);
+
+	int numEdges = 2* (numNodes - 1);
+	printf("NUmber of edges: %d\n", numEdges);
+
+	int numVars = Cudd_ReadSize(manager);
+	printf("Number of levels: %d\n", numVars);
+
+	int oldSize;
+	oldSize = Cudd_ReadNodeCount(manager);
+	fprintf(stdout, "Old Size: %8d nodes.\n", oldSize);
 
 	// Call DyanmicReordering to reorder the BDDs
 	DynamicReordering(manager, net, option);
-	Cudd_ReorderingType reorderingMethod;
-	Cudd_ReorderingStatus(manager, &reorderingMethod);
-	const char *reorderingMethodName = Cudd_ReorderingTypeName(reorderingMethod);
-	fprintf(stdout, "Bdd reordering with: %s\n", reorderingMethodName);
 
+	int newSize;
+	newSize = Cudd_ReadNodeCount(manager);
+	fprintf(stdout, "New Size: %8d nodes.\n", newSize);
 
-    int liveNodesAfter = Cudd_ReadKeys(manager);
-	int deadNodesAfter = Cudd_ReadDead(manager);
-	int bddSizeAfter = getBddSize(manager);
-	fprintf(stdout, "After reordering:\n");
-	fprintf(stdout, "Live nodes: %d\n", liveNodesAfter);
-	fprintf(stdout, "Dead nodes: %d\n", deadNodesAfter);
-	fprintf(stdout, "BDD size: %d\n", bddSizeAfter);
+    // Print the Improvement from Old -> New Order
+	int improvement = oldSize - newSize;
+	printf("Improvement: %d node(s).\n", improvement);
+	improvement = (improvement * 100) / oldSize;
+	if (improvement < 0) {
+        fprintf(stdout, "The new size is %d%% worse than before.\n", improvement);
+	}
+	else if (improvement > 0) {
+		fprintf(stdout, "The new size is %d%% better than before.\n", improvement);
+	}
+	else {
+		fprintf(stdout, "The new size is identical to the previous size.\n");
+    }
+	/* int liveNodesAfter = Cudd_ReadKeys(manager); */
+	/* int deadNodesAfter = Cudd_ReadDead(manager); */
+	/* int bddSizeAfter = getBddSize(manager); */
+	/* fprintf(stdout, "After reordering:\n"); */
+	/* fprintf(stdout, "Live nodes: %d\n", liveNodesAfter); */
+	/* fprintf(stdout, "Dead nodes: %d\n", deadNodesAfter); */
+	/* fprintf(stdout, "BDD size: %d\n", bddSizeAfter); */
 
 	strcat(string1, "");
 	strcat(string1, blif_file);
@@ -177,11 +201,6 @@ int main (int argc, char **argv)
 	strcat(string1, ".add.dot");
 	//strcat(string1, ".dot");
 	
-	// ECE/CS 5740/6740 -- Counting BDD size (added 04/19/2021 by Cunxi Yu)
-    int mysize;
-	mysize = Cudd_ReadNodeCount(manager);
-    fprintf(stdout, "size: %8d\n", mysize);	
-	// ECE/CS 5740/6740 -- Counting BDD size (added 04/19/2021 by Cunxi Yu) end
 	Bnet_bddDump (manager, net, string1, 0, 0);
 
 	(void) Bnet_FreeNetwork (net);
@@ -1416,28 +1435,23 @@ static void DynamicReordering(DdManager *dd, BnetNetwork *net, NtrOptions *optio
     option->reordering = approach;
 
     // Print the Old BDD Size and the Old BDD Order
-	int initialBddSize = getBddSize(dd);
-	printf("Initial BDD size: %d\n", initialBddSize);
+	/* int initialBddSize = getBddSize(dd); */
+	/* printf("Initial BDD size: %d\n", initialBddSize); */
     fprintf(stdout, "Old order: \n");
+    Bnet_PrintOrder(net, dd);
 
 	// Reorder the BDD
-	Bnet_PrintOrder(net, dd);
 	Cudd_ReduceHeap(dd, approach, 1);
 
 	// Print the New BDD Size and the New BDD Order
-	int minimizedBddSize = getBddSize(dd);
-	printf("Minimized BDD size: %d\n", minimizedBddSize);
+	/* int minimizedBddSize = getBddSize(dd); */
+	/* printf("Minimized BDD size: %d\n", minimizedBddSize); */
 	fprintf(stdout, "New order: \n");
 	Bnet_PrintOrder(net, dd);
 
-    // Print the Improvement from Old -> New Order
-	double improvement = initialBddSize - minimizedBddSize;
-	printf("Improvement: %f\n", improvement);
-	improvement = (improvement * 100) / initialBddSize;
-	printf("This is %f percent better than before!\n", improvement);
 
 	// Update the Variable Order to the New Order
-	updateNetworkVarOrder(net, dd);
+	/* updateNetworkVarOrder(net, dd); */
 
 
 	return;

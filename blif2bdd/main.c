@@ -146,30 +146,84 @@ int main (int argc, char **argv)
 	/* fprintf(stdout, "Dead nodes: %d\n", deadNodesBefore); */
 	/* fprintf(stdout, "BDD size: %d\n", bddSizeBefore); */
 
-	DdNode *bdd;
-    int numNodes = Cudd_DagSize(bdd);
-	printf("Number of nodes: %d\n", numNodes);
 
-	int numEdges = 2* (numNodes - 1);
-	printf("NUmber of edges: %d\n", numEdges);
+    if (result != 0) {
+		int totalOldNodes = 0;
 
-	int numVars = Cudd_ReadSize(manager);
-	printf("Number of levels: %d\n", numVars);
+		BnetNode *node;
+		st_generator *gen;
+		char *name;
+		// Iterate through all the nodes in the BnetNetwork structure
+		st_foreach_item(net->hash, gen, &name, (char **)&node) {
+			if (node->type == BNET_OUTPUT_NODE) {
+				// Found an output node
+				DdNode *outputBDD = node->dd;
+                int oldNodes = Cudd_DagSize(outputBDD);
+				totalOldNodes += oldNodes;
+			}
+		}
 
+		printf("Total number of nodes in the original BDDs: %d\n", totalOldNodes);
+
+		int oldEdges = 2* (totalOldNodes - 1);
+	    printf("Number of edges in the original BDD: %d\n", oldEdges);
+	}
+	else {
+	    fprintf(stderr, "Cannot build DD from the BNetwork.\n");
+	    exit(-1);
+	}
+
+
+	int oldVars = Cudd_ReadSize(manager);
+	printf("Number of levels in the original BDD: %d\n", oldVars);
+
+	// Record Old Size of BDD
 	int oldSize;
 	oldSize = Cudd_ReadNodeCount(manager);
-	fprintf(stdout, "Old Size: %8d nodes.\n", oldSize);
 
 	// Call DyanmicReordering to reorder the BDDs
 	DynamicReordering(manager, net, option);
 
+	//Record New Size of BDD
 	int newSize;
 	newSize = Cudd_ReadNodeCount(manager);
+
+	// Print Old and New Size of BDD
+	fprintf(stdout, "\nOld Size: %8d nodes.\n", oldSize);
 	fprintf(stdout, "New Size: %8d nodes.\n", newSize);
 
-    // Print the Improvement from Old -> New Order
+    if (result != 0) {
+		int totalNewNodes = 0;
+
+		BnetNode *node;
+		st_generator *gen;
+		char *name;
+		// Iterate through all the nodes in the BnetNetwork structure
+		st_foreach_item(net->hash, gen, &name, (char **)&node) {
+			if (node->type == BNET_OUTPUT_NODE) {
+				// Found an output node
+				DdNode *outputBDD = node->dd;
+                int newNodes = Cudd_DagSize(outputBDD);
+				totalNewNodes += newNodes;
+			}
+		}
+
+		printf("\nTotal number of nodes in the reordered BDD: %d\n", totalNewNodes);
+
+		int newEdges = 2* (totalNewNodes - 1);
+	    printf("Number of edges in the reordered BDD: %d\n", newEdges);
+	}
+	else {
+	    fprintf(stderr, "Cannot build DD from the BNetwork.\n");
+	    exit(-1);
+	}
+
+	int newVars = Cudd_ReadSize(manager);
+	printf("Number of levels in the reordered BDD: %d\n", newVars);
+
+	// Print the Improvement from Old -> New Order
 	int improvement = oldSize - newSize;
-	printf("Improvement: %d node(s).\n", improvement);
+	printf("\nImprovement: %d node(s).\n", improvement);
 	improvement = (improvement * 100) / oldSize;
 	if (improvement < 0) {
         fprintf(stdout, "The new size is %d%% worse than before.\n", improvement);

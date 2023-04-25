@@ -6,7 +6,10 @@
 #include "cudd.h"
 #include "bnet.h"
 #include "ntr.h"
-
+#include <stdlib.h>
+#include <stdio.h>
+#include <limits.h>
+#include <unistd.h>
 
 /*---------------------------------------------------------------------------*/
 /* Constant declarations */
@@ -42,10 +45,42 @@ static int reorder ARGS ((BnetNetwork * net, DdManager * dd, NtrOptions * option
 static void freeOption ARGS ((NtrOptions * option));
 static DdManager *startCudd ARGS ((NtrOptions * option, int nvars));
 static int ntrReadTree ARGS ((DdManager * dd, char *treefile, int nvars));
-static void DynamicReordering ARGS ((DdManager *dd));
+static void DynamicReordering ARGS ((DdManager *dd, BnetNetwork *net, NtrOptions *option));
 
-	int
-main (int argc, char **argv)
+
+int getBddSize(DdManager *dd) {
+	return Cudd_ReadKeys(dd) - Cudd_ReadDead(dd);
+}
+
+void updateNetworkVarOrder(BnetNetwork *net, DdManager *manager) {
+    BnetNode *node;
+	int *newOrder;
+	int i;
+
+	newOrder = ALLOC(int, net->ninputs);
+	if (newOrder == NULL) {
+		return;
+	}
+
+    for (i = 0; i < net->ninputs; i++) {
+		st_lookup(net->hash, net->inputs[i], &node);
+		if (node != NULL && node->type == BNET_INPUT_NODE) {
+			int index = Cudd_NodeReadIndex(node->dd);
+			newOrder[index] = i;
+		}
+	}
+
+	char **updatedInputs = ALLOC(char *, net->ninputs);
+	for (i = 0; i < net->ninputs; i++) {
+		updatedInputs[i] = net->inputs[newOrder[i]];
+	}
+
+    FREE(newOrder);
+	FREE(updatedInputs);
+}
+
+
+int main (int argc, char **argv)
 {
 	NtrOptions *option;
 	BnetNetwork *net;
@@ -59,6 +94,7 @@ main (int argc, char **argv)
 	Cudd_ReorderingType method, reorder;
 
 	char **PIs;
+	char **POs;
 
 	if (argc < 2)
 	{
@@ -89,10 +125,37 @@ main (int argc, char **argv)
 		(void) fprintf (stdout, "\n End of Boolean Network");
 	}
 
+	/* PIs = net->inputs; */
+	/* int input_counter = 0; */
+	/* fprintf (stdout, "\nPI are: \n"); */
+	/* for (i = 0; i < net->ninputs; i++) { fprintf (stdout, "\t%s ", PIs[i]); input_counter++; */
+	/* } */
+	/* fprintf (stdout, "\nInputs: %8d\n", input_counter); */
+
+    /* POs = net->outputs; */
+	/* int output_counter = 0; */
+	/* for (i = 0; i < net->noutputs; i++) { fprintf (stdout, "\t%s ", POs[i]); output_counter++; */
+	/* } */
+	/* fprintf (stdout, "\nOutputs: %8d\n", output_counter); */
+
+
 	PIs = net->inputs;
+	int input_counter = 0;
 	fprintf (stdout, "\nPI are: \n");
-	for (i = 0; i < net->ninputs; i++) { fprintf (stdout, "\n\t%s\n", PIs[i]);
+	for (i = 0; i < net->ninputs; i++) {
+		input_counter++;
 	}
+	fprintf (stdout, "\nInputs: %8d\n", input_counter);
+
+    POs = net->outputs;
+	int output_counter = 0;
+	for (i = 0; i < net->noutputs; i++) {
+		output_counter++;
+	}
+	fprintf (stdout, "\nOutputs: %8d\n", output_counter);
+
+
+
 
 	/* Contruct the BDD structure */
 	/* Initialize manager. We start with 0 variables, because
@@ -113,17 +176,28 @@ main (int argc, char **argv)
 
 	/** Ordering **/
 	/* Show Cudd_reordering status */
-	//method = (Cudd_ReorderingType *) malloc( sizeof(Cudd_ReorderingType));
-	//reorder = CUDD_REORDER_SIFT;
-	// CUDD_REORDER_SIFT_CONVERGE;
-	//CUDD_REORDER_ANNEALING;
-	//Cudd_ReorderingStatus(manager, &method);
-	//fprintf(stdout, "\nBDD ordering method is: %d", method);
+	/* method = (Cudd_ReorderingType *) malloc( sizeof(Cudd_ReorderingType)); */
+	/* reorder = CUDD_REORDER_SIFT; */
+	/* CUDD_REORDER_SIFT_CONVERGE; */
+	/* CUDD_REORDER_ANNEALING; */
+	/* Cudd_ReorderingStatus(manager, &method); */
+	/* fprintf(stdout, "\nBDD ordering method is: %d", method); */
 
-	//Cudd_AutodynEnable( manager, reorder);
+	/* Cudd_AutodynEnable( manager, reorder); */
 	//
-	if (option->ordering != PI_PS_GIVEN)
-		DynamicReordering( manager);
+	//if (option->ordering != PI_PS_GIVEN)
+	//	DynamicReordering( manager);
+
+    //Display the old order
+    /* fprintf(stdout, "Old order: \n"); */
+	/* Bnet_PrintOrder(net, manager); */
+
+	// Call DyanmicReordering to reorder the BDDs
+	DynamicReordering(manager, net, option);
+
+	// Display the new order
+	/* fprintf(stdout, "New order: \n"); */
+	/* Bnet_PrintOrder(net, manager); */
 
 	/** Dump BDD **/
 	//fp = fopen("dump.dot", "w");
@@ -131,11 +205,11 @@ main (int argc, char **argv)
 	//Bnet_bddDump (manager, net, "dump.dot.reorder", 0, 0);
 	//(void) fclose(fp);
 
-	fprintf (stdout, "\nOrdering before the DFS re-ordering.\n");
-	//   Bnet_PrintOrder( net, manager);
-	//  Bnet_DfsVariableOrder( manager, net);
-	// Bnet_PrintOrder( net, manager);
-	//Bnet_bddDump( manager, net, "dump1.dot", 0, 0);
+	/* fprintf (stdout, "\nOrdering before the DFS re-ordering.\n"); */
+	/*   Bnet_PrintOrder( net, manager); */
+	/*  Bnet_DfsVariableOrder( manager, net); */
+	/* Bnet_PrintOrder( net, manager); */
+	/* Bnet_bddDump( manager, net, "dump1.dot", 0, 0); */
 
 	/* Read ordering from file */
 	//   Bnet_ReadOrder( manager, "s27.ord", net, 1, 1); // 0: which kind of bdd 1:
@@ -1268,16 +1342,17 @@ startCudd (
 {
 	DdManager *dd;
 	int result;
-
-	dd = Cudd_Init (0, 0, option->slots, option->cacheSize, option->maxMemory);
+    dd = Cudd_Init (0, 0, CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS, 0);
+	//dd = Cudd_Init (0, 0, option->slots, option->cacheSize, option->maxMemory);
 	if (dd == NULL)
 		return (NULL);
 
-	Cudd_SetGroupcheck (dd, option->groupcheck);
-	if (option->autoDyn & 1)
-	{
-		Cudd_AutodynEnable (dd, option->autoMethod);
-	}
+	Cudd_AutodynEnable (dd, option->reordering);
+	/* Cudd_SetGroupcheck (dd, option->groupcheck); */
+	/* if (option->autoDyn & 1) */
+	/* { */
+	/* 	Cudd_AutodynEnable (dd, option->autoMethod); */
+	/* } */
 	dd->nextDyn = option->firstReorder;
 	dd->countDead = (option->countDead == FALSE) ? ~0 : 0;
 	dd->maxGrowth = 1.0 + ((float) option->maxGrowth / 100.0);
@@ -1365,11 +1440,7 @@ ntrReadTree (
   SeeAlso     []
 
  ******************************************************************************/
-static void
-DynamicReordering(
-				  DdManager *dd
-				 )
-{
+static void DynamicReordering(DdManager *dd, BnetNetwork *net, NtrOptions *option) {
 #define DDDMPTEST_MAX_STRING_LENGTH 20
 	char *row;
 	int nReordering;
@@ -1377,7 +1448,6 @@ DynamicReordering(
 	Cudd_ReorderingType approach = CUDD_REORDER_SIFT;
 
 	row = (char*) malloc (DDDMPTEST_MAX_STRING_LENGTH * sizeof(char));
-/*
 	(void) fprintf(stderr, "\n\nPlease choose one of the reordering methods:\n");
 	(void) fprintf(stderr, "   \t\t\t0: same as autoMethod\n");
 	(void) fprintf(stderr, "   \t\t\t1: no reordering (default)\n");
@@ -1394,14 +1464,39 @@ DynamicReordering(
 	(void) fprintf(stderr, "   \t\t\t16: simulated annealing\n");
 	(void) fprintf(stderr, "   \t\t\t17: genetic algorithm\n");
 	(void) fprintf(stderr, "   \t\t\t18-20: others\n");
-*/
-	fprintf (stdout, "\n >> no ordering (default); same order of input variables listed in row .input in BLIF  "); fflush(stdout);
-	//fprintf (stdout, "reordering approach (1..17): "); fflush(stdout);
-	//fgets (row, DDDMPTEST_MAX_STRING_LENGTH, stdin);
-	sscanf ("1", "%d", (int *) &approach);
-        int result;
-	result = dd->keys - dd->isolated;
-        Cudd_ReduceHeap(dd,approach,1);
+
+	/* fprintf (stdout, "\n >> no ordering (default); same order of input variables listed in row .input in BLIF  "); fflush(stdout); */
+	fprintf (stdout, "reordering approach (1..17): "); fflush(stdout);
+	fgets (row, DDDMPTEST_MAX_STRING_LENGTH, stdin);
+	sscanf (row, "%d", (int *)&approach);
+    option->reordering - approach;
+
+    // Print the Old BDD Size and the Old BDD Order
+	int initialBddSize = getBddSize(dd);
+	printf("Initial BDD size: %d\n", initialBddSize);
+    fprintf(stdout, "Old order: \n");
+    // Reorder the BDD
+	Bnet_PrintOrder(net, dd);
+	Cudd_ReduceHeap(dd, approach, 1);
+    // Print the New BDD Size and the New BDD Order
+	int minimizedBddSize = getBddSize(dd);
+	printf("Minimized BDD size: %d\n", minimizedBddSize);
+	fprintf(stdout, "New order: \n");
+	Bnet_PrintOrder(net, dd);
+
+    // Print the Improvement from Old -> New Order
+	double improvement = initialBddSize - minimizedBddSize;
+	printf("Improvement: %f\n", improvement);
+	improvement = (improvement * 100) / initialBddSize;
+	printf("This is %f percent better than before!\n", improvement);
+	/* int result; */
+	/* result = dd->keys - dd->isolated; */
+        /* Cudd_ReduceHeap(dd,approach,1); */
+	//approach = option->reordering;
+	// Reorder the BDDs using the chosen method
+	updateNetworkVarOrder(net, dd);
+
+
 	return;
 }
 

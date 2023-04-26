@@ -6,6 +6,7 @@
 #include "cudd.h"
 #include "bnet.h"
 #include "ntr.h"
+#include "limits.h"
 
 /*---------------------------------------------------------------------------*/
 /* Constant declarations */
@@ -42,6 +43,8 @@ static void freeOption ARGS ((NtrOptions * option));
 static DdManager *startCudd ARGS ((NtrOptions * option, int nvars));
 static int ntrReadTree ARGS ((DdManager * dd, char *treefile, int nvars));
 static void DynamicReordering ARGS ((DdManager *dd, BnetNetwork *net, NtrOptions *option));
+static void OptimalReordering ARGS ((DdManager *dd, BnetNetwork *net, NtrOptions *option));
+static void SequentialReordering ARGS ((DdManager *dd, BnetNetwork *net, NtrOptions *option));
 
 int getBddSize(DdManager *dd) {
 	return Cudd_ReadKeys(dd) - Cudd_ReadDead(dd);
@@ -138,15 +141,6 @@ int main (int argc, char **argv)
 		exit (-1);
 	}
 
-    /* int liveNodesBefore = Cudd_ReadKeys(manager); */
-	/* int deadNodesBefore = Cudd_ReadDead(manager); */
-	/* int bddSizeBefore = getBddSize(manager); */
-	/* fprintf(stdout, "Before reordering:\n"); */
-	/* fprintf(stdout, "Live nodes: %d\n", liveNodesBefore); */
-	/* fprintf(stdout, "Dead nodes: %d\n", deadNodesBefore); */
-	/* fprintf(stdout, "BDD size: %d\n", bddSizeBefore); */
-
-
     if (result != 0) {
 		int totalOldNodes = 0;
 
@@ -180,6 +174,12 @@ int main (int argc, char **argv)
 	// Record Old Size of BDD
 	int oldSize;
 	oldSize = Cudd_ReadNodeCount(manager);
+
+    // Call SequentialReordering
+    SequentialReordering(manager, net, option);
+
+    // Call OptimalReordering
+    OptimalReordering(manager, net, option);
 
 	// Call DyanmicReordering to reorder the BDDs
 	DynamicReordering(manager, net, option);
@@ -234,13 +234,6 @@ int main (int argc, char **argv)
 	else {
 		fprintf(stdout, "The new size is identical to the previous size.\n");
     }
-	/* int liveNodesAfter = Cudd_ReadKeys(manager); */
-	/* int deadNodesAfter = Cudd_ReadDead(manager); */
-	/* int bddSizeAfter = getBddSize(manager); */
-	/* fprintf(stdout, "After reordering:\n"); */
-	/* fprintf(stdout, "Live nodes: %d\n", liveNodesAfter); */
-	/* fprintf(stdout, "Dead nodes: %d\n", deadNodesAfter); */
-	/* fprintf(stdout, "BDD size: %d\n", bddSizeAfter); */
 
 	strcat(string1, "");
 	strcat(string1, blif_file);
@@ -1487,7 +1480,6 @@ static void DynamicReordering(DdManager *dd, BnetNetwork *net, NtrOptions *optio
 	fgets (row, DDDMPTEST_MAX_STRING_LENGTH, stdin);
 	sscanf (row, "%d", (int *)&approach);
     option->reordering = approach;
-
     // Print the Old BDD Size and the Old BDD Order
 	/* int initialBddSize = getBddSize(dd); */
 	/* printf("Initial BDD size: %d\n", initialBddSize); */
@@ -1509,4 +1501,118 @@ static void DynamicReordering(DdManager *dd, BnetNetwork *net, NtrOptions *optio
 
 
 	return;
+}
+
+static void SequentialReordering(DdManager *dd, BnetNetwork *net, NtrOptions *option) {
+#define DDDMPTEST_MAX_STRING_LENGTH 20
+	int nReordering;
+	long tReorderingTime;
+	Cudd_ReorderingType reorderTypes[17] = {
+		CUDD_REORDER_NONE,
+		CUDD_REORDER_RANDOM,
+		CUDD_REORDER_RANDOM_PIVOT,
+		CUDD_REORDER_SIFT,
+		CUDD_REORDER_SIFT_CONVERGE,
+		CUDD_REORDER_SYMM_SIFT,
+		CUDD_REORDER_SYMM_SIFT_CONV,
+		CUDD_REORDER_WINDOW2,
+		CUDD_REORDER_WINDOW3,
+		CUDD_REORDER_WINDOW4,
+		CUDD_REORDER_WINDOW2_CONV,
+		CUDD_REORDER_WINDOW3_CONV,
+		CUDD_REORDER_WINDOW4_CONV,
+		CUDD_REORDER_GROUP_SIFT,
+		CUDD_REORDER_GROUP_SIFT_CONV,
+		CUDD_REORDER_ANNEALING,
+		CUDD_REORDER_GENETIC
+	};
+    Cudd_ReorderingType seqApproach = CUDD_REORDER_SIFT;
+    int nodesAfterAllReorderingMethods = 0;
+    int result;
+	int nodeSize;
+
+	for (int i = 0; i < 17; i++) {
+		seqApproach = reorderTypes[i];
+		option->reordering = seqApproach;
+
+		Cudd_ReduceHeap(dd, seqApproach, 0);
+
+		// Record Node Size of BDD
+	    nodeSize = Cudd_ReadNodeCount(dd);
+    }
+	// Apply best reordering method
+	option->reordering = reorderTypes[nodesAfterAllReorderingMethods];
+	Cudd_ReduceHeap(dd, option->reordering, 0);
+    printf("Sequentially applying all 17 reordering methods yields a node count of %d:\n\n", nodeSize);
+
+}
+
+static void OptimalReordering(DdManager *dd, BnetNetwork *net, NtrOptions *option) {
+#define DDDMPTEST_MAX_STRING_LENGTH 20
+	int nReordering;
+	long tReorderingTime;
+	Cudd_ReorderingType reorderTypes[17] = {
+		CUDD_REORDER_NONE,
+		CUDD_REORDER_RANDOM,
+		CUDD_REORDER_RANDOM_PIVOT,
+		CUDD_REORDER_SIFT,
+		CUDD_REORDER_SIFT_CONVERGE,
+		CUDD_REORDER_SYMM_SIFT,
+		CUDD_REORDER_SYMM_SIFT_CONV,
+		CUDD_REORDER_WINDOW2,
+		CUDD_REORDER_WINDOW3,
+		CUDD_REORDER_WINDOW4,
+		CUDD_REORDER_WINDOW2_CONV,
+		CUDD_REORDER_WINDOW3_CONV,
+		CUDD_REORDER_WINDOW4_CONV,
+		CUDD_REORDER_GROUP_SIFT,
+		CUDD_REORDER_GROUP_SIFT_CONV,
+		CUDD_REORDER_ANNEALING,
+		CUDD_REORDER_GENETIC
+	};
+    Cudd_ReorderingType optimApproach = CUDD_REORDER_SIFT;
+    int bestReorderingMethods[17];
+	int bestReorderingMethodsCount = 0;
+    int result;
+	int bestNodeSize, tempNodeSize;
+
+	int *originalOrder = (int *)malloc(Cudd_ReadSize(dd) * sizeof(int));
+	for (int i = 0; i < Cudd_ReadSize(dd); i++) {
+		originalOrder[i] = i;
+	}
+
+	for (int i = 0; i < 17; i++) {
+		optimApproach = reorderTypes[i];
+		option->reordering = optimApproach;
+
+		// Apply reordering to the original manager
+		Cudd_ReduceHeap(dd, optimApproach, 0);
+
+		// Record Node Size of BDD
+	    tempNodeSize = Cudd_ReadNodeCount(dd);
+
+		if (tempNodeSize < bestNodeSize) {
+			bestNodeSize = tempNodeSize;
+		    bestReorderingMethodsCount = 0;
+			bestReorderingMethods[bestReorderingMethodsCount++] = i;
+	    }
+	    else if (tempNodeSize == bestNodeSize) {
+		    bestReorderingMethods[bestReorderingMethodsCount++] = i;
+	    }
+
+	    // Reset the variable ordering and manager state
+        Cudd_ShuffleHeap(dd, originalOrder);
+		dd->reorderings = 0;
+	}
+
+	free(originalOrder);
+
+	// Apply best reordering method
+	option->reordering = reorderTypes[bestReorderingMethods[0]];
+	Cudd_ReduceHeap(dd, option->reordering, 0);
+    printf("Best reordering methods found with (a) total node count(s) of %d:\n", bestNodeSize);
+    for (int i = 0; i < bestReorderingMethodsCount; i++) {
+		printf("Method %d\n", bestReorderingMethods[i]);
+	}
+
 }

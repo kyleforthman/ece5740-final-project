@@ -15,12 +15,11 @@ Specifically, this code does the following:
 8. Frees the memory allocated for the BnetNetwork structure and the DdManager.
 
 ## Repository Structure
--cudd-2.5.0 contains the cudd-package
--cudd-location file to store the path to cudd-2.5.0
--blif2bdd contains the source files and the executable file.
--bench contains benchmarks
--test contains test files
-
+cudd-2.5.0 contains the cudd-package
++ cudd-location file to store the path to cudd-2.5.0
++ blif2bdd contains the source files and the executable file.
++ bench contains benchmarks
++ test contains test files
 
 ## Compile steps
 Navigate into cudd-2.5.0

@@ -233,7 +233,7 @@ int main (int argc, char **argv)
 	}
 	else {
 		fprintf(stdout, "The new size is identical to the previous size.\n");
-    }
+     }
 
 	strcat(string1, "");
 	strcat(string1, blif_file);
@@ -1610,7 +1610,7 @@ static void OptimalReordering(DdManager *dd, BnetNetwork *net, NtrOptions *optio
 	// Apply best reordering method
 	option->reordering = reorderTypes[bestReorderingMethods[0]];
 	Cudd_ReduceHeap(dd, option->reordering, 0);
-    printf("Best reordering methods found with (a) total node count(s) of %d:\n", bestNodeSize);
+    printf("Best reordering method(s) found with (a) total node count(s) of %d:\n", bestNodeSize);
     for (int i = 0; i < bestReorderingMethodsCount; i++) {
 		printf("Method %d\n", bestReorderingMethods[i]);
 	}

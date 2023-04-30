@@ -17,7 +17,7 @@ Specifically, this code does the following:
 ## Repository Structure
 + cudd-2.5.0 contains the cudd-package
 + cudd-location file to store the path to cudd-2.5.0
-+ blif2bdd contains the source files and the executable file.
++ blif2bdd contains the source files and the executable file
 + bench contains benchmarks
 + test contains test files
 
@@ -28,7 +28,7 @@ Navigate into cudd-2.5.0
 make distclean
 make
 ```
-navigate to base directory
+Navigate to base directory
 
 ```bash
 make distclean
@@ -36,7 +36,7 @@ make
 ```
 
 ## Run
-navigate to blif2bdd directory
+Navigate to blif2bdd directory
 ```bash
 ./blif2bdd ../test/test-file.blif
 or
